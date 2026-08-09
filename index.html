@@ -57,21 +57,44 @@
       margin: 0 auto;
     }
 
-    /* Écran d'authentification */
     #auth-screen {
-      max-width: 400px;
-      margin: 40px auto;
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      padding: 24px;
-      border-radius: var(--radius);
-    }
+  max-width: 400px;
+  margin: 40px auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  padding: 24px;
+  border-radius: var(--radius);
+}
 
-    #auth-screen h2 {
-      margin-bottom: 16px;
-      color: var(--accent-blue);
-      text-align: center;
-    }
+#auth-screen h2 {
+  margin-bottom: 20px;
+  color: var(--accent-blue);
+  text-align: center;
+}
+
+.auth-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--accent-blue);
+  border: 1px solid var(--accent-blue);
+  padding: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:active {
+  background: rgba(56, 189, 248, 0.1);
+}
 
     /* Écran principal (caché par défaut tant qu'on est déconnecté) */
     #app-screen {
@@ -307,22 +330,25 @@
 </head>
 <body>
 
-  <!-- Écran de connexion -->
-  <div id="auth-screen">
-    <h2>Connexion à ta Trésorerie</h2>
-    <form id="form-auth">
-      <div class="form-group">
-        <label>E-mail</label>
-        <input type="email" id="auth-email" placeholder="ton-email@exemple.com" required>
-      </div>
-      <div class="form-group">
-        <label>Mot de passe</label>
-        <input type="password" id="auth-password" placeholder="••••••••" required>
-      </div>
-      <button type="submit" class="btn-submit" id="btn-login">Se connecter</button>
-      <button type="button" class="btn-submit" id="btn-signup" style="background: transparent; color: var(--text-muted); border: 1px solid var(--border-color);">S'inscrire</button>
-    </form>
-  </div>
+  <!-- Écran d'authentification -->
+<div id="auth-screen">
+  <h2>Connexion à la Trésorerie</h2>
+  <form id="form-auth">
+    <div class="form-group">
+      <label>E-mail</label>
+      <input type="email" id="auth-email" placeholder="ton-email@exemple.com" required>
+    </div>
+    <div class="form-group">
+      <label>Mot de passe</label>
+      <input type="password" id="auth-password" placeholder="••••••••" required>
+    </div>
+    
+    <div class="auth-buttons">
+      <button type="button" id="btn-login" class="btn-submit">Se connecter</button>
+      <button type="button" id="btn-signup" class="btn-secondary">Créer un compte</button>
+    </div>
+  </form>
+</div>
 
   <!-- Application principale -->
   <div class="container" id="app-screen">
