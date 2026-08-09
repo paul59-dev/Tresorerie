@@ -500,6 +500,62 @@
     const authScreen = document.getElementById('auth-screen');
     const appScreen = document.getElementById('app-screen');
 
+    // Sélection des éléments
+const authEmailInput = document.getElementById('auth-email');
+const authPasswordInput = document.getElementById('auth-password');
+const btnLogin = document.getElementById('btn-login');
+const btnSignup = document.getElementById('btn-signup');
+
+// 1. Événement Connexion
+btnLogin.addEventListener('click', async () => {
+  const email = authEmailInput.value.trim();
+  const password = authPasswordInput.value;
+
+  if (!email || !password) {
+    alert("Veuillez remplir l'e-mail et le mot de passe.");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    alert("Erreur de connexion : " + error.message);
+  } else {
+    console.log("Connecté :", data.user);
+    // Masquer l'écran d'auth et charger l'application
+  }
+});
+
+// 2. Événement Création de compte (Inscription)
+btnSignup.addEventListener('click', async () => {
+  const email = authEmailInput.value.trim();
+  const password = authPasswordInput.value;
+
+  if (!email || !password) {
+    alert("Veuillez remplir l'e-mail et le mot de passe.");
+    return;
+  }
+
+  if (password.length < 6) {
+    alert("Le mot de passe doit contenir au moins 6 caractères.");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password
+  });
+
+  if (error) {
+    alert("Erreur lors de la création du compte : " + error.message);
+  } else {
+    alert("Compte créé avec succès ! Si la confirmation par e-mail est activée, vérifie ta boîte mail.");
+  }
+});
+
     async function checkUser() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
