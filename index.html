@@ -5,11 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Gestion Devis, Factures & Trésorerie</title>
 
-  <!-- PWA & Mode Fullscreen Mobile -->
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Gestion Devis, Factures & Trésorerie</title>
-
   <!-- Lier le fichier Manifest -->
   <link rel="manifest" href="manifest.json">
 
@@ -492,7 +487,6 @@
   </div>
 
   <script>
-    // Variable renommé 'sbClient' pour éviter tout conflit d'identifiant
     const SUPABASE_URL = "https://grucpeoznqdfgpdhfddx.supabase.co";
     const SUPABASE_KEY = "sb_publishable_9y2zqVdLB9-Vsr2QlgTMIA_U1JOweJ4";
 
@@ -731,6 +725,15 @@
     });
 
     window.addEventListener('DOMContentLoaded', checkUser);
+
+    // Enregistrement du Service Worker pour débloquer le mode PWA standalone
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('Service Worker enregistré !', reg))
+          .catch(err => console.error('Erreur SW :', err));
+      });
+    }
   </script>
 </body>
 </html>
