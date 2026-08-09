@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Gestion Devis, Factures & Trésorerie</title>
+  
+  <!-- Configuration PWA & Plein Écran Natif -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  
+  <!-- Mode WebApp / Fullscreen iOS Safari -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Trésorerie">
+  <link rel="apple-touch-icon" href="icon.png">
+
+  <!-- Mode Fullscreen Android / Chrome -->
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-card: rgba(30, 41, 59, 0.85);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-green: #34d399;
+      --accent-amber: #fbbf24;
+      --accent-red: #f87171;
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      padding: 16px;
+      /* Support des encoches (notch) d'écrans mobiles */
+      padding-top: calc(16px + env(safe-area-inset-top));
+      padding-bottom: calc(16px + env(safe-area-inset-bottom));
+      padding-left: calc(16px + env(safe-area-inset-left));
+      padding-right: calc(16px + env(safe-area-inset-right));
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border-color);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--accent-blue);
+      letter-spacing: -0.02em;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    @media (min-width: 640px) {
+      .header-actions {
+        width: auto;
+      }
+      h1 { font-size: 1.5rem; }
+    }
+
+    nav {
+      display: flex;
+      gap: 8px;
+      flex: 1;
+    }
+
+    nav button {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    nav button.active, nav button:hover {
+      background: var(--accent-blue);
+      color: #0f172a;
+      border-color: var(--accent-blue);
+    }
+
+    .btn-reset {
+      background: rgba(248, 113, 113, 0.15);
+      border: 1px solid var(--accent-red);
+      color: var(--accent-red);
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-reset:hover {
+      background: var(--accent-red);
+      color: #0f172a;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100%, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    @media (min-width: 500px) {
+      .kpi-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      }
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(10px);
+      padding: 16px;
+      border-radius: var(--radius);
+    }
+
+    .kpi-card .label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .kpi-card .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      transition: transform 0.2s ease, color 0.2s ease;
+    }
+
+    .kpi-card .value.value-updated {
+      transform: scale(1.05);
+    }
+
+    .kpi-card .value.green { color: var(--accent-green); }
+    .kpi-card .value.amber { color: var(--accent-amber); }
+    .kpi-card .value.blue { color: var(--accent-blue); }
+
+    .capital-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .capital-box label {
+      font-size: 0.8rem;
+    }
+
+    .capital-box input {
+      width: 100px;
+      padding: 6px 8px;
+      font-size: 0.85rem;
+      border-radius: 6px;
+    }
+
+    .view-section {
+      display: none;
+    }
+
+    .view-section.active {
+      display: block;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(10px);
+      padding: 16px;
+      border-radius: var(--radius);
+      margin-bottom: 20px;
+    }
+
+    @media (min-width: 640px) {
+      .card { padding: 24px; }
+    }
+
+    .card-title {
+      font-size: 1rem;
+      margin-bottom: 14px;
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    @media (min-width: 600px) {
+      form {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+      }
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    input, select {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 12px;
+      border-radius: 8px;
+      outline: none;
+      font-size: 0.95rem;
+      width: 100%;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent-blue);
+    }
+
+    .btn-submit {
+      grid-column: 1 / -1;
+      background: var(--accent-blue);
+      color: #0f172a;
+      border: none;
+      padding: 14px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 4px;
+      transition: opacity 0.2s;
+    }
+
+    .btn-submit:active {
+      opacity: 0.8;
+    }
+
+    .table-responsive {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 0 -16px;
+      padding: 0 16px;
+    }
+
+    @media (min-width: 640px) {
+      .table-responsive {
+        margin: 0;
+        padding: 0;
+      }
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      min-width: 500px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+
+    th {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .status-select {
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 6px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .badge-recette { background: rgba(52, 211, 153, 0.2); color: var(--accent-green); }
+    .badge-dépense { background: rgba(248, 113, 113, 0.2); color: var(--accent-red); }
+
+    .action-btns {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-icon {
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    .btn-icon.delete:active {
+      background: var(--accent-red);
+      color: #0f172a;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 250px;
+      max-height: 300px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Tableau de Bord</h1>
+      <div class="header-actions">
+        <nav>
+          <button class="nav-btn active" data-target="dashboard-view">Trésorerie</button>
+          <button class="nav-btn" data-target="docs-view">Devis & Factures</button>
+        </nav>
+        <button class="btn-reset" onclick="resetAllData()">Reset</button>
+      </div>
+    </header>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="label">Solde Trésorerie</div>
+        <div class="value blue" id="kpi-solde">0.00 €</div>
+        <div class="capital-box">
+          <label>Capital :</label>
+          <input type="number" id="capital-input" step="0.01" value="0">
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="label">En Attente (TTC)</div>
+        <div class="value amber" id="kpi-attente">0.00 €</div>
+      </div>
+      <div class="kpi-card">
+        <div class="label">CA Encaissé (TTC)</div>
+        <div class="value green" id="kpi-ca">0.00 €</div>
+      </div>
+    </div>
+
+    <div id="dashboard-view" class="view-section active">
+      <div class="card">
+        <h2 class="card-title" id="form-t-title">Ajouter une opération</h2>
+        <form id="form-tresorerie">
+          <input type="hidden" id="t-id">
+          <div class="form-group">
+            <label>Type</label>
+            <select id="t-type" required>
+              <option value="recette">Recette (+)</option>
+              <option value="dépense">Dépense (-)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <input type="text" id="t-desc" placeholder="ex: Acompte / Loyer" required>
+          </div>
+          <div class="form-group">
+            <label>Montant TTC (€)</label>
+            <input type="number" step="0.01" id="t-montant" placeholder="0.00" required>
+          </div>
+          <button type="submit" class="btn-submit" id="btn-t-submit">Enregistrer</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Mouvements de Trésorerie</h2>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Description</th>
+                <th>Montant</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="table-tresorerie"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Analyse (Recettes vs Dépenses)</h2>
+        <div class="chart-container">
+          <canvas id="treasuryChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div id="docs-view" class="view-section">
+      <div class="card">
+        <h2 class="card-title" id="form-doc-title">Créer un Document</h2>
+        <form id="form-doc">
+          <input type="hidden" id="doc-id">
+          <div class="form-group">
+            <label>Type</label>
+            <select id="doc-type" required>
+              <option value="Facture">Facture</option>
+              <option value="Devis">Devis</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Statut</label>
+            <select id="doc-status" required>
+              <option value="Brouillon">Brouillon</option>
+              <option value="Envoyé">Envoyé (En attente)</option>
+              <option value="Payé">Payé (Encaissé)</option>
+              <option value="Annulé">Annulé</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Client</label>
+            <input type="text" id="doc-client" placeholder="Nom du client" required>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <input type="text" id="doc-desc" placeholder="Service" required>
+          </div>
+          <div class="form-group">
+            <label>Montant TTC (€)</label>
+            <input type="number" step="0.01" id="doc-montant" placeholder="0.00" required>
+          </div>
+          <button type="submit" class="btn-submit" id="btn-doc-submit">Générer Document</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Liste des Devis et Factures</h2>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Réf</th>
+                <th>Client</th>
+                <th>Description</th>
+                <th>Montant</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="table-docs"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(err => console.log('SW Error:', err));
+    }
+
+    let chartInstance = null;
+    const STORAGE_KEY = 'app_finance_state_v4';
+
+    let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
+      capital: 0,
+      tresorerie: [],
+      documents: []
+    };
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      render();
+    }
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+        e.target.classList.add('active');
+        document.getElementById(e.target.dataset.target).classList.add('active');
+      });
+    });
+
+    const capitalInput = document.getElementById('capital-input');
+    capitalInput.value = state.capital || 0;
+    capitalInput.addEventListener('change', (e) => {
+      state.capital = parseFloat(e.target.value) || 0;
+      saveState();
+    });
+
+    function resetAllData() {
+      if (confirm("Réinitialiser toutes les données ?")) {
+        state = { capital: 0, tresorerie: [], documents: [] };
+        capitalInput.value = 0;
+        saveState();
+      }
+    }
+
+    function formatEUR(val) {
+      return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(val);
+    }
+
+    function updateKPI(elementId, formattedValue) {
+      const el = document.getElementById(elementId);
+      if (el && el.textContent !== formattedValue) {
+        el.textContent = formattedValue;
+        el.classList.add('value-updated');
+        setTimeout(() => el.classList.remove('value-updated'), 200);
+      }
+    }
+
+    function render() {
+      const tbodyT = document.getElementById('table-tresorerie');
+      tbodyT.innerHTML = '';
+      let solde = state.capital || 0;
+      let totalRecettesTTC = 0;
+      let totalDepensesTTC = 0;
+
+      state.tresorerie.forEach(t => {
+        const ttc = t.ttc;
+        if (t.type === 'recette') {
+          solde += ttc;
+          totalRecettesTTC += ttc;
+        } else {
+          solde -= ttc;
+          totalDepensesTTC += ttc;
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${t.date}</td>
+          <td><span class="badge badge-${t.type}">${t.type}</span></td>
+          <td>${t.desc}</td>
+          <td><strong>${formatEUR(ttc)}</strong></td>
+          <td>
+            <div class="action-btns">
+              <button class="btn-icon" onclick="editTresorerie(${t.id})">✏️</button>
+              <button class="btn-icon delete" onclick="deleteTresorerie(${t.id})">🗑️</button>
+            </div>
+          </td>
+        `;
+        tbodyT.appendChild(tr);
+      });
+
+      const tbodyD = document.getElementById('table-docs');
+      tbodyD.innerHTML = '';
+      let totalAttenteTTC = 0;
+      let totalCATTC = 0;
+
+      state.documents.forEach(doc => {
+        const ttc = doc.ttc;
+        if (doc.type === 'Facture') {
+          if (doc.status === 'Envoyé') {
+            totalAttenteTTC += ttc;
+          } else if (doc.status === 'Payé') {
+            totalCATTC += ttc;
+            solde += ttc;
+            totalRecettesTTC += ttc;
+          }
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${doc.type} #${doc.id}</strong></td>
+          <td>${doc.client}</td>
+          <td>${doc.desc}</td>
+          <td><strong>${formatEUR(ttc)}</strong></td>
+          <td>
+            <select class="status-select" onchange="changeStatus(${doc.id}, this.value)">
+              <option value="Brouillon" ${doc.status === 'Brouillon' ? 'selected' : ''}>Brouillon</option>
+              <option value="Envoyé" ${doc.status === 'Envoyé' ? 'selected' : ''}>Envoyé (En attente)</option>
+              <option value="Payé" ${doc.status === 'Payé' ? 'selected' : ''}>Payé (Encaissé)</option>
+              <option value="Annulé" ${doc.status === 'Annulé' ? 'selected' : ''}>Annulé</option>
+            </select>
+          </td>
+          <td>
+            <div class="action-btns">
+              <button class="btn-icon" onclick="editDocument(${doc.id})">✏️</button>
+              <button class="btn-icon delete" onclick="deleteDocument(${doc.id})">🗑️</button>
+            </div>
+          </td>
+        `;
+        tbodyD.appendChild(tr);
+      });
+
+      updateKPI('kpi-solde', formatEUR(solde));
+      updateKPI('kpi-attente', formatEUR(totalAttenteTTC));
+      updateKPI('kpi-ca', formatEUR(totalCATTC));
+
+      renderChart(totalRecettesTTC, totalDepensesTTC);
+    }
+
+    function renderChart(recettes, depenses) {
+      const canvas = document.getElementById('treasuryChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Recettes', 'Dépenses'],
+          datasets: [{
+            data: [recettes, depenses],
+            backgroundColor: ['rgba(52, 211, 153, 0.6)', 'rgba(248, 113, 113, 0.6)'],
+            borderColor: ['#34d399', '#f87171'],
+            borderWidth: 1,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              ticks: { color: '#94a3b8' },
+              grid: { color: 'rgba(255, 255, 255, 0.05)' }
+            },
+            x: {
+              ticks: { color: '#94a3b8' },
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
+
+    function changeStatus(id, newStatus) {
+      const doc = state.documents.find(d => d.id === id);
+      if (doc) {
+        doc.status = newStatus;
+        saveState();
+      }
+    }
+
+    function deleteTresorerie(id) {
+      state.tresorerie = state.tresorerie.filter(t => t.id !== id);
+      saveState();
+    }
+
+    function editTresorerie(id) {
+      const item = state.tresorerie.find(t => t.id === id);
+      if (item) {
+        document.getElementById('t-id').value = item.id;
+        document.getElementById('t-type').value = item.type;
+        document.getElementById('t-desc').value = item.desc;
+        document.getElementById('t-montant').value = item.ttc;
+        document.getElementById('form-t-title').textContent = "Modifier opération";
+        document.getElementById('btn-t-submit').textContent = "Mettre à jour";
+      }
+    }
+
+    document.getElementById('form-tresorerie').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = document.getElementById('t-id').value;
+      const type = document.getElementById('t-type').value;
+      const desc = document.getElementById('t-desc').value;
+      const ttc = parseFloat(document.getElementById('t-montant').value);
+
+      if (id) {
+        const item = state.tresorerie.find(t => t.id == id);
+        if (item) {
+          item.type = type;
+          item.desc = desc;
+          item.ttc = ttc;
+        }
+      } else {
+        state.tresorerie.push({
+          id: Date.now(),
+          date: new Date().toISOString().split('T')[0],
+          type, desc, ttc
+        });
+      }
+
+      e.target.reset();
+      document.getElementById('t-id').value = '';
+      document.getElementById('form-t-title').textContent = "Ajouter une opération";
+      document.getElementById('btn-t-submit').textContent = "Enregistrer";
+      saveState();
+    });
+
+    function deleteDocument(id) {
+      state.documents = state.documents.filter(d => d.id !== id);
+      saveState();
+    }
+
+    function editDocument(id) {
+      const doc = state.documents.find(d => d.id === id);
+      if (doc) {
+        document.getElementById('doc-id').value = doc.id;
+        document.getElementById('doc-type').value = doc.type;
+        document.getElementById('doc-status').value = doc.status;
+        document.getElementById('doc-client').value = doc.client;
+        document.getElementById('doc-desc').value = doc.desc;
+        document.getElementById('doc-montant').value = doc.ttc;
+        document.getElementById('form-doc-title').textContent = "Modifier Document";
+        document.getElementById('btn-doc-submit').textContent = "Mettre à jour";
+      }
+    }
+
+    document.getElementById('form-doc').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = document.getElementById('doc-id').value;
+      const type = document.getElementById('doc-type').value;
+      const status = document.getElementById('doc-status').value;
+      const client = document.getElementById('doc-client').value;
+      const desc = document.getElementById('doc-desc').value;
+      const ttc = parseFloat(document.getElementById('doc-montant').value);
+
+      if (id) {
+        const doc = state.documents.find(d => d.id == id);
+        if (doc) {
+          doc.type = type;
+          doc.status = status;
+          doc.client = client;
+          doc.desc = desc;
+          doc.ttc = ttc;
+        }
+      } else {
+        state.documents.push({
+          id: Math.floor(100 + Math.random() * 900),
+          type, status, client, desc, ttc
+        });
+      }
+
+      e.target.reset();
+      document.getElementById('doc-id').value = '';
+      document.getElementById('form-doc-title').textContent = "Créer un Document";
+      document.getElementById('btn-doc-submit').textContent = "Générer Document";
+      saveState();
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      render();
+    });
+  </script>
+</body>
+</html>
