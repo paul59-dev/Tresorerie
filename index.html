@@ -11,7 +11,6 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Trésorerie">
-  <link rel="apple-touch-icon" href="icon.png">
   <meta name="mobile-web-app-capable" content="yes">
 
   <!-- Chart.js & SDK Supabase -->
@@ -487,252 +486,297 @@
   </div>
 
   <script>
-    const SUPABASE_URL = "https://grucpeoznqdfgpdhfddx.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_9y2zqVdLB9-Vsr2QlgTMIA_U1JOweJ4";
+    // --- INITIALISATION SUPABASE ---
+const SUPABASE_URL = "https://grucpeoznqdfgpdhfddx.supabase.co";
+const SUPABASE_KEY = "sb_publishable_9y2zqVdLB9-Vsr2QlgTMIA_U1JOweJ4";
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    let state = { tresorerie: [], documents: [] };
-    let chartInstance = null;
+// --- ÉTAT GLOBAL ET VARIABLES ---
+let state = { 
+  tresorerie: [], 
+  documents: [] 
+};
+let chartInstance = null;
 
-    // Elements d'authentification
-    const authScreen = document.getElementById('auth-screen');
-    const appScreen = document.getElementById('app-screen');
-    const authEmailInput = document.getElementById('auth-email');
-    const authPasswordInput = document.getElementById('auth-password');
+// Éléments du DOM
+const authScreen = document.getElementById('auth-screen');
+const appScreen = document.getElementById('app-screen');
+const authEmailInput = document.getElementById('auth-email');
+const authPasswordInput = document.getElementById('auth-password');
 
-    // 1. Connexion
-    document.getElementById('btn-login').addEventListener('click', async (e) => {
-      e.preventDefault();
-      const email = authEmailInput.value.trim();
-      const password = authPasswordInput.value;
+// --- AUTHENTIFICATION ---
 
-      if (!email || !password) {
-        alert("Veuillez remplir l'e-mail et le mot de passe.");
-        return;
+// Connexion
+document.getElementById('btn-login').addEventListener('click', async (e) => {
+  e.preventDefault();
+  const email = authEmailInput.value.trim();
+  const password = authPasswordInput.value;
+
+  if (!email || !password) {
+    alert("Veuillez remplir l'e-mail et le mot de passe.");
+    return;
+  }
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    alert("Erreur de connexion : " + error.message);
+  } else {
+    checkUser();
+  }
+});
+
+// Inscription
+document.getElementById('btn-signup').addEventListener('click', async (e) => {
+  e.preventDefault();
+  const email = authEmailInput.value.trim();
+  const password = authPasswordInput.value;
+
+  if (!email || !password) {
+    alert("Veuillez remplir l'e-mail et le mot de passe.");
+    return;
+  }
+
+  if (password.length < 6) {
+    alert("Le mot de passe doit contenir au moins 6 caractères.");
+    return;
+  }
+
+  const { error } = await supabase.auth.signUp({ email, password });
+  if (error) {
+    alert("Erreur d'inscription : " + error.message);
+  } else {
+    alert("Compte créé ! Vous pouvez maintenant vous connecter.");
+  }
+});
+
+// Vérification de la session active
+async function checkUser() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    authScreen.style.display = 'none';
+    appScreen.style.display = 'block';
+    fetchData();
+  } else {
+    authScreen.style.display = 'block';
+    appScreen.style.display = 'none';
+  }
+}
+
+// Déconnexion
+async function logout() {
+  await supabase.auth.signOut();
+  checkUser();
+}
+
+// --- RECUPERATION DES DONNEES ---
+async function fetchData() {
+  const { data: tresoData, error: tresoError } = await supabase
+    .from('tresorerie')
+    .select('*')
+    .order('id', { ascending: false });
+
+  const { data: docsData, error: docsError } = await supabase
+    .from('documents')
+    .select('*')
+    .order('id', { ascending: false });
+
+  if (tresoError) console.error("Erreur trésorerie :", tresoError);
+  if (docsError) console.error("Erreur documents :", docsError);
+
+  state.tresorerie = tresoData || [];
+  state.documents = docsData || [];
+  render();
+}
+
+// --- AJOUTS ET SUPPRESSIONS ---
+
+// Ajout d'un mouvement de trésorerie
+document.getElementById('form-tresorerie').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const type = document.getElementById('t-type').value;
+  const description = document.getElementById('t-desc').value;
+  const montant = parseFloat(document.getElementById('t-montant').value);
+  const date = new Date().toISOString().split('T')[0];
+
+  const { error } = await supabase.from('tresorerie').insert([{ date, type, description, montant }]);
+  if (error) {
+    alert("Erreur lors de l'ajout : " + error.message);
+  } else {
+    e.target.reset();
+    fetchData();
+  }
+});
+
+// Ajout d'un document (Devis / Facture)
+document.getElementById('form-doc').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const type = document.getElementById('doc-type').value;
+  const status = document.getElementById('doc-status').value;
+  const client = document.getElementById('doc-client').value;
+  const description = document.getElementById('doc-desc').value;
+  const montant = parseFloat(document.getElementById('doc-montant').value);
+
+  const { error } = await supabase.from('documents').insert([{ type, status, client, description, montant }]);
+  if (error) {
+    alert("Erreur lors de la création du document : " + error.message);
+  } else {
+    e.target.reset();
+    fetchData();
+  }
+});
+
+// Suppression d'un mouvement de trésorerie
+async function deleteTresorerie(id) {
+  if (confirm("Supprimer cette ligne de trésorerie ?")) {
+    await supabase.from('tresorerie').delete().eq('id', id);
+    fetchData();
+  }
+}
+
+// Suppression d'un document
+async function deleteDocument(id) {
+  if (confirm("Supprimer ce document ?")) {
+    await supabase.from('documents').delete().eq('id', id);
+    fetchData();
+  }
+}
+
+// Changement de statut d'un document
+async function changeStatus(id, newStatus) {
+  await supabase.from('documents').update({ status: newStatus }).eq('id', id);
+  fetchData();
+}
+
+// --- AFFICHAGE ET RENDU ---
+
+function formatEUR(val) {
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(val);
+}
+
+function render() {
+  const tbodyT = document.getElementById('table-tresorerie');
+  tbodyT.innerHTML = '';
+  let solde = 0;
+  let totalRecettes = 0;
+  let totalDepenses = 0;
+
+  // Affichage Trésorerie
+  state.tresorerie.forEach(t => {
+    const montant = parseFloat(t.montant);
+    if (t.type === 'recette') {
+      solde += montant;
+      totalRecettes += montant;
+    } else {
+      solde -= montant;
+      totalDepenses += montant;
+    }
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${t.date}</td>
+      <td><span class="badge badge-${t.type}">${t.type}</span></td>
+      <td>${t.description}</td>
+      <td><strong>${formatEUR(montant)}</strong></td>
+      <td>
+        <button class="btn-icon" onclick="deleteTresorerie(${t.id})">🗑️</button>
+      </td>
+    `;
+    tbodyT.appendChild(tr);
+  });
+
+  // Affichage Documents & Calcul KPI
+  const tbodyD = document.getElementById('table-docs');
+  tbodyD.innerHTML = '';
+  let totalAttente = 0;
+  let totalCA = 0;
+
+  state.documents.forEach(doc => {
+    const montant = parseFloat(doc.montant);
+    if (doc.type === 'Facture') {
+      if (doc.status === 'Envoyé') {
+        totalAttente += montant;
+      } else if (doc.status === 'Payé') {
+        totalCA += montant;
+        solde += montant;
+        totalRecettes += montant;
       }
+    }
 
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        alert("Erreur de connexion : " + error.message);
-      } else {
-        checkUser();
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${doc.type} #${doc.id}</strong></td>
+      <td>${doc.client}</td>
+      <td>${doc.description}</td>
+      <td><strong>${formatEUR(montant)}</strong></td>
+      <td>
+        <select class="status-select" onchange="changeStatus(${doc.id}, this.value)">
+          <option value="Brouillon" ${doc.status === 'Brouillon' ? 'selected' : ''}>Brouillon</option>
+          <option value="Envoyé" ${doc.status === 'Envoyé' ? 'selected' : ''}>Envoyé</option>
+          <option value="Payé" ${doc.status === 'Payé' ? 'selected' : ''}>Payé</option>
+          <option value="Annulé" ${doc.status === 'Annulé' ? 'selected' : ''}>Annulé</option>
+        </select>
+      </td>
+      <td>
+        <button class="btn-icon" onclick="deleteDocument(${doc.id})">🗑️</button>
+      </td>
+    `;
+    tbodyD.appendChild(tr);
+  });
+
+  // Mise à jour des cartes KPI
+  document.getElementById('kpi-solde').textContent = formatEUR(solde);
+  document.getElementById('kpi-attente').textContent = formatEUR(totalAttente);
+  document.getElementById('kpi-ca').textContent = formatEUR(totalCA);
+
+  // Mise à jour du graphique
+  renderChart(totalRecettes, totalDepenses);
+}
+
+// Graphique Chart.js
+function renderChart(recettes, depenses) {
+  const canvas = document.getElementById('treasuryChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  if (chartInstance) chartInstance.destroy();
+
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Recettes', 'Dépenses'],
+      datasets: [{
+        data: [recettes, depenses],
+        backgroundColor: ['rgba(52, 211, 153, 0.6)', 'rgba(248, 113, 113, 0.6)'],
+        borderColor: ['#34d399', '#f87171'],
+        borderWidth: 1,
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255, 255, 255, 0.05)' } },
+        x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
       }
-    });
-
-    // 2. Inscription
-    document.getElementById('btn-signup').addEventListener('click', async (e) => {
-      e.preventDefault();
-      const email = authEmailInput.value.trim();
-      const password = authPasswordInput.value;
-
-      if (!email || !password) {
-        alert("Veuillez remplir l'e-mail et le mot de passe.");
-        return;
-      }
-
-      if (password.length < 6) {
-        alert("Le mot de passe doit contenir au moins 6 caractères.");
-        return;
-      }
-
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) {
-        alert("Erreur d'inscription : " + error.message);
-      } else {
-        alert("Compte créé ! Tu peux maintenant te connecter.");
-      }
-    });
-
-    async function checkUser() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        authScreen.style.display = 'none';
-        appScreen.style.display = 'block';
-        fetchData();
-      } else {
-        authScreen.style.display = 'block';
-        appScreen.style.display = 'none';
-      }
     }
+  });
+}
 
-    async function logout() {
-      await supabase.auth.signOut();
-      checkUser();
-    }
+// --- NAVIGATION D'ONGLETS ---
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+    e.target.classList.add('active');
+    document.getElementById(e.target.dataset.target).classList.add('active');
+  });
+});
 
-    // --- LECTURE DES DONNÉES EN TEMPS RÉEL ---
-    async function fetchData() {
-      const { data: tresoData } = await supabase.from('tresorerie').select('*').order('id', { ascending: false });
-      const { data: docsData } = await supabase.from('documents').select('*').order('id', { ascending: false });
-
-      state.tresorerie = tresoData || [];
-      state.documents = docsData || [];
-      render();
-    }
-
-    // --- AJOUT ET SUPPRESSION ---
-    document.getElementById('form-tresorerie').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const type = document.getElementById('t-type').value;
-      const description = document.getElementById('t-desc').value;
-      const montant = parseFloat(document.getElementById('t-montant').value);
-      const date = new Date().toISOString().split('T')[0];
-
-      await supabase.from('tresorerie').insert([{ date, type, description, montant }]);
-      e.target.reset();
-      fetchData();
-    });
-
-    document.getElementById('form-doc').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const type = document.getElementById('doc-type').value;
-      const status = document.getElementById('doc-status').value;
-      const client = document.getElementById('doc-client').value;
-      const description = document.getElementById('doc-desc').value;
-      const montant = parseFloat(document.getElementById('doc-montant').value);
-
-      await supabase.from('documents').insert([{ type, status, client, description, montant }]);
-      e.target.reset();
-      fetchData();
-    });
-
-    async function deleteTresorerie(id) {
-      await supabase.from('tresorerie').delete().eq('id', id);
-      fetchData();
-    }
-
-    async function deleteDocument(id) {
-      await supabase.from('documents').delete().eq('id', id);
-      fetchData();
-    }
-
-    async function changeStatus(id, newStatus) {
-      await supabase.from('documents').update({ status: newStatus }).eq('id', id);
-      fetchData();
-    }
-
-    // --- AFFICHAGE / RENDU ---
-    function formatEUR(val) {
-      return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(val);
-    }
-
-    function render() {
-      const tbodyT = document.getElementById('table-tresorerie');
-      tbodyT.innerHTML = '';
-      let solde = 0;
-      let totalRecettes = 0;
-      let totalDepenses = 0;
-
-      state.tresorerie.forEach(t => {
-        const montant = parseFloat(t.montant);
-        if (t.type === 'recette') {
-          solde += montant;
-          totalRecettes += montant;
-        } else {
-          solde -= montant;
-          totalDepenses += montant;
-        }
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${t.date}</td>
-          <td><span class="badge badge-${t.type}">${t.type}</span></td>
-          <td>${t.description}</td>
-          <td><strong>${formatEUR(montant)}</strong></td>
-          <td>
-            <button class="btn-icon" onclick="deleteTresorerie(${t.id})">🗑️</button>
-          </td>
-        `;
-        tbodyT.appendChild(tr);
-      });
-
-      const tbodyD = document.getElementById('table-docs');
-      tbodyD.innerHTML = '';
-      let totalAttente = 0;
-      let totalCA = 0;
-
-      state.documents.forEach(doc => {
-        const montant = parseFloat(doc.montant);
-        if (doc.type === 'Facture') {
-          if (doc.status === 'Envoyé') totalAttente += montant;
-          else if (doc.status === 'Payé') {
-            totalCA += montant;
-            solde += montant;
-            totalRecettes += montant;
-          }
-        }
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td><strong>${doc.type} #${doc.id}</strong></td>
-          <td>${doc.client}</td>
-          <td>${doc.description}</td>
-          <td><strong>${formatEUR(montant)}</strong></td>
-          <td>
-            <select class="status-select" onchange="changeStatus(${doc.id}, this.value)">
-              <option value="Brouillon" ${doc.status === 'Brouillon' ? 'selected' : ''}>Brouillon</option>
-              <option value="Envoyé" ${doc.status === 'Envoyé' ? 'selected' : ''}>Envoyé</option>
-              <option value="Payé" ${doc.status === 'Payé' ? 'selected' : ''}>Payé</option>
-              <option value="Annulé" ${doc.status === 'Annulé' ? 'selected' : ''}>Annulé</option>
-            </select>
-          </td>
-          <td>
-            <button class="btn-icon" onclick="deleteDocument(${doc.id})">🗑️</button>
-          </td>
-        `;
-        tbodyD.appendChild(tr);
-      });
-
-      document.getElementById('kpi-solde').textContent = formatEUR(solde);
-      document.getElementById('kpi-attente').textContent = formatEUR(totalAttente);
-      document.getElementById('kpi-ca').textContent = formatEUR(totalCA);
-
-      renderChart(totalRecettes, totalDepenses);
-    }
-
-    function renderChart(recettes, depenses) {
-      const canvas = document.getElementById('treasuryChart');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      if (chartInstance) chartInstance.destroy();
-
-      chartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: ['Recettes', 'Dépenses'],
-          datasets: [{
-            data: [recettes, depenses],
-            backgroundColor: ['rgba(52, 211, 153, 0.6)', 'rgba(248, 113, 113, 0.6)'],
-            borderColor: ['#34d399', '#f87171'],
-            borderWidth: 1,
-            borderRadius: 6
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: {
-            y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255, 255, 255, 0.05)' } },
-            x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
-          }
-        }
-      });
-    }
-
-    // Gestion de la navigation par onglets
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-        e.target.classList.add('active');
-        document.getElementById(e.target.dataset.target).classList.add('active');
-      });
-    });
-
-    // Initialisation au chargement de la page
-    window.addEventListener('DOMContentLoaded', checkUser);
+// Lancement au chargement complet du DOM
+window.addEventListener('DOMContentLoaded', checkUser);
   </script>
 </body>
 </html>
