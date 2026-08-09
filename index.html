@@ -58,45 +58,45 @@
     }
 
     #auth-screen {
-  max-width: 400px;
-  margin: 40px auto;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  padding: 24px;
-  border-radius: var(--radius);
-}
+      max-width: 400px;
+      margin: 40px auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      padding: 24px;
+      border-radius: var(--radius);
+    }
 
-#auth-screen h2 {
-  margin-bottom: 20px;
-  color: var(--accent-blue);
-  text-align: center;
-}
+    #auth-screen h2 {
+      margin-bottom: 20px;
+      color: var(--accent-blue);
+      text-align: center;
+    }
 
-.auth-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 10px;
-}
+    .auth-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
 
-.btn-secondary {
-  background: transparent;
-  color: var(--accent-blue);
-  border: 1px solid var(--accent-blue);
-  padding: 12px;
-  font-weight: 600;
-  font-size: 0.95rem;
-  border-radius: 8px;
-  cursor: pointer;
-  text-align: center;
-  transition: all 0.2s ease;
-}
+    .btn-secondary {
+      background: transparent;
+      color: var(--accent-blue);
+      border: 1px solid var(--accent-blue);
+      padding: 12px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
 
-.btn-secondary:active {
-  background: rgba(56, 189, 248, 0.1);
-}
+    .btn-secondary:active {
+      background: rgba(56, 189, 248, 0.1);
+    }
 
-    /* Écran principal (caché par défaut tant qu'on est déconnecté) */
+    /* Écran principal */
     #app-screen {
       display: none;
     }
@@ -331,24 +331,24 @@
 <body>
 
   <!-- Écran d'authentification -->
-<div id="auth-screen">
-  <h2>Connexion à la Trésorerie</h2>
-  <form id="form-auth">
-    <div class="form-group">
-      <label>E-mail</label>
-      <input type="email" id="auth-email" placeholder="ton-email@exemple.com" required>
-    </div>
-    <div class="form-group">
-      <label>Mot de passe</label>
-      <input type="password" id="auth-password" placeholder="••••••••" required>
-    </div>
-    
-    <div class="auth-buttons">
-      <button type="button" id="btn-login" class="btn-submit">Se connecter</button>
-      <button type="button" id="btn-signup" class="btn-secondary">Créer un compte</button>
-    </div>
-  </form>
-</div>
+  <div id="auth-screen">
+    <h2>Connexion à la Trésorerie</h2>
+    <form id="form-auth">
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="auth-email" placeholder="ton-email@exemple.com" required>
+      </div>
+      <div class="form-group">
+        <label>Mot de passe</label>
+        <input type="password" id="auth-password" placeholder="••••••••" required>
+      </div>
+      
+      <div class="auth-buttons">
+        <button type="button" id="btn-login" class="btn-submit">Se connecter</button>
+        <button type="button" id="btn-signup" class="btn-secondary">Créer un compte</button>
+      </div>
+    </form>
+  </div>
 
   <!-- Application principale -->
   <div class="container" id="app-screen">
@@ -487,8 +487,7 @@
   </div>
 
   <script>
-    // ⚠️ REMPLACE AVEC TES INFOS SUPABASE (Projet Settings > API)
-    const SUPABASE_URL = "https://grucpeoznqdfgpdhfddx.supabase.co/rest/v1/";
+    const SUPABASE_URL = "https://grucpeoznqdfgpdhfddx.supabase.co";
     const SUPABASE_KEY = "sb_publishable_9y2zqVdLB9-Vsr2QlgTMIA_U1JOweJ4";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -496,65 +495,54 @@
     let state = { tresorerie: [], documents: [] };
     let chartInstance = null;
 
-    // --- AUTHENTIFICATION ---
+    // Elements d'authentification
     const authScreen = document.getElementById('auth-screen');
     const appScreen = document.getElementById('app-screen');
+    const authEmailInput = document.getElementById('auth-email');
+    const authPasswordInput = document.getElementById('auth-password');
 
-    // Sélection des éléments
-const authEmailInput = document.getElementById('auth-email');
-const authPasswordInput = document.getElementById('auth-password');
-const btnLogin = document.getElementById('btn-login');
-const btnSignup = document.getElementById('btn-signup');
+    // 1. Connexion
+    document.getElementById('btn-login').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const email = authEmailInput.value.trim();
+      const password = authPasswordInput.value;
 
-// 1. Événement Connexion
-btnLogin.addEventListener('click', async () => {
-  const email = authEmailInput.value.trim();
-  const password = authPasswordInput.value;
+      if (!email || !password) {
+        alert("Veuillez remplir l'e-mail et le mot de passe.");
+        return;
+      }
 
-  if (!email || !password) {
-    alert("Veuillez remplir l'e-mail et le mot de passe.");
-    return;
-  }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        alert("Erreur de connexion : " + error.message);
+      } else {
+        checkUser();
+      }
+    });
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({
-    email,
-    password
-  });
+    // 2. Inscription
+    document.getElementById('btn-signup').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const email = authEmailInput.value.trim();
+      const password = authPasswordInput.value;
 
-  if (error) {
-    alert("Erreur de connexion : " + error.message);
-  } else {
-    console.log("Connecté :", data.user);
-    // Masquer l'écran d'auth et charger l'application
-  }
-});
+      if (!email || !password) {
+        alert("Veuillez remplir l'e-mail et le mot de passe.");
+        return;
+      }
 
-// 2. Événement Création de compte (Inscription)
-btnSignup.addEventListener('click', async () => {
-  const email = authEmailInput.value.trim();
-  const password = authPasswordInput.value;
+      if (password.length < 6) {
+        alert("Le mot de passe doit contenir au moins 6 caractères.");
+        return;
+      }
 
-  if (!email || !password) {
-    alert("Veuillez remplir l'e-mail et le mot de passe.");
-    return;
-  }
-
-  if (password.length < 6) {
-    alert("Le mot de passe doit contenir au moins 6 caractères.");
-    return;
-  }
-
-  const { data, error } = await supabaseClient.auth.signUp({
-    email,
-    password
-  });
-
-  if (error) {
-    alert("Erreur lors de la création du compte : " + error.message);
-  } else {
-    alert("Compte créé avec succès ! Si la confirmation par e-mail est activée, vérifie ta boîte mail.");
-  }
-});
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        alert("Erreur d'inscription : " + error.message);
+      } else {
+        alert("Compte créé ! Tu peux maintenant te connecter.");
+      }
+    });
 
     async function checkUser() {
       const { data: { session } } = await supabase.auth.getSession();
@@ -567,24 +555,6 @@ btnSignup.addEventListener('click', async () => {
         appScreen.style.display = 'none';
       }
     }
-
-    document.getElementById('btn-login').addEventListener('click', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('auth-email').value;
-      const password = document.getElementById('auth-password').value;
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) alert("Erreur de connexion : " + error.message);
-      else checkUser();
-    });
-
-    document.getElementById('btn-signup').addEventListener('click', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('auth-email').value;
-      const password = document.getElementById('auth-password').value;
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) alert("Erreur d'inscription : " + error.message);
-      else alert("Compte créé ! Tu peux maintenant te connecter.");
-    });
 
     async function logout() {
       await supabase.auth.signOut();
@@ -761,7 +731,7 @@ btnSignup.addEventListener('click', async () => {
       });
     });
 
-    // Initialisation
+    // Initialisation au chargement de la page
     window.addEventListener('DOMContentLoaded', checkUser);
   </script>
 </body>
